@@ -79,7 +79,7 @@ fn int main(String[] args)
 		gRenderer.clear();
 
 		// Render the image on the screen
-		gPngTexture.render(0, 0);
+		gPngTexture.render(0f, 0f);
 
 		// Update screen
 		gRenderer.present();

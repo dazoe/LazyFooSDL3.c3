@@ -48,6 +48,21 @@ fn bool LTexture.load_from_file(&self, ZString path)
 
 fn void LTexture.render(&self, float x, float y)
 {
-    SDLFRect dstRect = {x, y, self.width, self.height};
+    SDLFRect dstRect = {x, y, (float)self.width, (float)self.height};
     gRenderer.texture(self.texture, null, &dstRect);
+}
+
+fn CInt LTexture.get_width(&self)
+{
+    return self.width;
+}
+
+fn CInt LTexture.get_height(&self)
+{
+    return self.height;
+}
+
+fn bool LTexture.is_loaded(&self)
+{
+    return self.texture == null;
 }
