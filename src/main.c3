@@ -6,10 +6,10 @@ const CInt SCREEN_WIDTH = 800;
 const CInt SCREEN_HEIGHT = 600;
 
 SDLWindow* gWindow;
-SDLSurface* gScreenSurface;
-SDLSurface* gHelloWorld;
+SDLRenderer* gRenderer;
+LTexture gPngTexture;
 
-faultdef INIT_VIDEO, INIT_WINDOW, INIT_SURFACE;
+faultdef INIT_VIDEO, INIT_WINDOW;
 
 fn void? init()
 {
@@ -18,18 +18,10 @@ fn void? init()
 		sdl::log_("SDL could not initialize! SDL error: %s\n", sdl::get_error());
 		return INIT_VIDEO?;
 	}
-	gWindow = sdl::create_window("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, 0);
-	if (gWindow == null)
+	if (sdl::create_window_and_renderer("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, 0, &gWindow, &gRenderer) == false)
 	{
 		sdl::log_("Window could not be created! SDL error: %s\n", sdl::get_error());
 		return INIT_WINDOW?;
-	}
-	gScreenSurface = gWindow.get_surface();
-	if (gScreenSurface == null)
-	{
-		sdl::log_("Unable to get window surface! SDL error: %s\n", sdl::get_error());
-		gWindow.destroy();
-		return INIT_SURFACE?;
 	}
 }
 
@@ -37,21 +29,21 @@ faultdef LOAD_ERROR;
 
 fn void? load_media()
 {
-	ZString image_path = "resources/HelloWorld.bmp";
-	gHelloWorld = sdl::load_bmp(image_path);
-	if (gHelloWorld == null) {
-		sdl::log_("Unable to get window surface! SDL error: %s\n", sdl::get_error());
+	ZString image_path = "resources/HelloPNG.png";
+	if (gPngTexture.load_from_file(image_path) == false)
+	{
+		sdl::log_("Unable to load png texture! SDL error: %s\n", sdl::get_error());
 		return LOAD_ERROR?;
 	}
 }
 
 fn void close()
 {
-	gHelloWorld.destroy();
-	gHelloWorld = null;
+	gPngTexture.destroy();
 
+	gRenderer.destroy();
+	gRenderer = null;
 	gWindow.destroy();
-	gScreenSurface = null;
 	gWindow = null;
 
 	sdl::quit();
@@ -82,9 +74,15 @@ fn int main(String[] args)
 			}
 		}
 
-		gScreenSurface.fill_rect(null, gScreenSurface.map_rbg(0xFF, 0xFF, 0xFF));
-		gHelloWorld.blit(null, gScreenSurface, null);
-		gWindow.update_surface();
+		// Fill the background with white
+		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
+		gRenderer.clear();
+
+		// Render the image on the screen
+		gPngTexture.render(0, 0);
+
+		// Update screen
+		gRenderer.present();
 	}
 
 	close();
