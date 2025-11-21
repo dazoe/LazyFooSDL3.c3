@@ -1,0 +1,6 @@
+[submodule "lib/sdl3.c3l"]
+	path = lib/sdl3.c3l
+	url = git@github.com:dazoe/sdl3.c3l
+[submodule "lib/sdl3_image.c3l"]
+	path = lib/sdl3_image.c3l
+	url = git@github.com:dazoe/sdl3_image.c3l
