@@ -1,10 +1,9 @@
 module lazyfoosdl3;
 import std::io;
 import sdl;
-import sdl::img;
 
-const SCREEN_WIDTH = 800;
-const SCREEN_HEIGHT = 600;
+const CInt SCREEN_WIDTH = 800;
+const CInt SCREEN_HEIGHT = 600;
 
 SDLWindow* gWindow;
 SDLSurface* gScreenSurface;
@@ -38,8 +37,8 @@ faultdef LOAD_ERROR;
 
 fn void? load_media()
 {
-	ZString image_path = "resources/HelloWorld.png";
-	gHelloWorld = img::load(image_path);
+	ZString image_path = "resources/HelloWorld.bmp";
+	gHelloWorld = sdl::load_bmp(image_path);
 	if (gHelloWorld == null) {
 		sdl::log_("Unable to get window surface! SDL error: %s\n", sdl::get_error());
 		return LOAD_ERROR?;
@@ -63,12 +62,12 @@ fn int main(String[] args)
 	if (catch err = init())
 	{
 		io::printfn("init returned fault: %s", err);
-		return -1;
+		return 1;
 	}
 	if (catch err = load_media())
 	{
 		io::printfn("load_media returned fault: %s", err);
-		return -2;
+		return 2;
 	}
 
 	bool quit;
