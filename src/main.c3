@@ -7,7 +7,7 @@ const CInt SCREEN_HEIGHT = 600;
 
 SDLWindow* gWindow;
 SDLRenderer* gRenderer;
-LTexture gUpTexture, gDownTexture, gLeftTexture, gRightTexture;
+LTexture gBackgroundTexture, gStickyTexture;
 
 faultdef INIT_VIDEO, INIT_WINDOW;
 
@@ -30,35 +30,26 @@ faultdef LOAD_ERROR;
 fn void? load_media()
 {
 	fault err;
-	if (gUpTexture.load_from_file("resources/Up.png") == false)
+
+	// load scene images
+	if (gBackgroundTexture.load_from_file("resources/background.png") == false)
 	{
 		sdl::log_("Unable to load Up texture! SDL error: %s\n", sdl::get_error());
 		err = LOAD_ERROR;
 	}
-	if (gDownTexture.load_from_file("resources/Down.png") == false)
+	if (gStickyTexture.load_from_file("resources/sticky.png") == false)
 	{
 		sdl::log_("Unable to load Down texture! SDL error: %s\n", sdl::get_error());
 		err = LOAD_ERROR;
 	}
-	if (gLeftTexture.load_from_file("resources/Left.png") == false)
-	{
-		sdl::log_("Unable to load Left texture! SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
-	if (gRightTexture.load_from_file("resources/Right.png") == false)
-	{
-		sdl::log_("Unable to load Right texture! SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
+
 	return err?;
 }
 
 fn void close()
 {
-	gUpTexture.destroy();
-	gDownTexture.destroy();
-	gLeftTexture.destroy();
-	gRightTexture.destroy();
+	gBackgroundTexture.destroy();
+	gStickyTexture.destroy();
 
 	gRenderer.destroy();
 	gRenderer = null;
@@ -87,11 +78,6 @@ fn int main(String[] args)
 	// Event data
 	SDLEvent event;
 
-	// Currently rendered texture
-	LTexture* currentTexture = &gUpTexture;
-
-	// Default background color
-	SDLColor bgColor = {0xFF, 0xFF, 0xFF, 0xFF};
 	while(quit == false)
 	{
 		// Process events
@@ -102,68 +88,15 @@ fn int main(String[] args)
 			{
 				quit = true;
 			}
-			// on keypress
-			else if (event.type == SDLEventType.KEY_DOWN)
-			{
-				// Set texture
-				if (event.key.key == sdl::K_UP)
-				{
-					currentTexture = &gUpTexture;
-				}
-				if (event.key.key == sdl::K_DOWN)
-				{
-					currentTexture = &gDownTexture;
-				}
-				if (event.key.key == sdl::K_LEFT)
-				{
-					currentTexture = &gLeftTexture;
-				}
-				if (event.key.key == sdl::K_RIGHT)
-				{
-					currentTexture = &gRightTexture;
-				}
-			}
-		}
-
-		// Reset bgColor to white
-		bgColor = {0xFF, 0xFF, 0xFF, 0xFF};
-
-		bool* keyStates = sdl::get_keyboard_state(null);
-		if (keyStates[SDLScancode.UP] == true)
-		{
-			// Red
-			bgColor.r = 0xff;
-			bgColor.g = 0x00;
-			bgColor.b = 0x00;
-		}
-		else if (keyStates[SDLScancode.DOWN] == true)
-		{
-			// Green
-			bgColor.r = 0x00;
-			bgColor.g = 0xff;
-			bgColor.b = 0x00;
-		}
-		else if (keyStates[SDLScancode.LEFT] == true)
-		{
-			// Yellow
-			bgColor.r = 0xff;
-			bgColor.g = 0xff;
-			bgColor.b = 0x00;
-		}
-		else if (keyStates[SDLScancode.RIGHT] == true)
-		{
-			// Blue
-			bgColor.r = 0x00;
-			bgColor.g = 0x00;
-			bgColor.b = 0xff;
 		}
 
 		// Fill the background with white
-		gRenderer.set_draw_color(...bgColor);
+		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
 
-		// Render the image on the screen
-		currentTexture.render(((float)SCREEN_WIDTH - currentTexture.get_width()) / 2.0f, ((float)SCREEN_HEIGHT - currentTexture.get_height()) / 2.0f);
+		// Render the images on the screen
+		gBackgroundTexture.render(0f, 0f);
+		gStickyTexture.render(240f, 150f);
 
 		// Update screen
 		gRenderer.present();
