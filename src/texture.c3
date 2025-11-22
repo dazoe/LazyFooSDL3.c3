@@ -3,6 +3,8 @@ module lazyfoosdl3;
 import sdl;
 import sdl::img;
 
+const ORIGINAL_SIZE = -1;
+
 struct LTexture
 {
 	SDLTexture* texture;
@@ -58,10 +60,30 @@ fn bool LTexture.load_from_file(&self, ZString path)
 	return self.texture != null;
 }
 
-fn void LTexture.render(&self, float x, float y)
+fn void LTexture.render(&self, float x, float y, SDLFRect* clip = null, float width = ORIGINAL_SIZE, float height = ORIGINAL_SIZE)
 {
+	// set texture position
 	SDLFRect dstRect = {x, y, (float)self.width, (float)self.height};
-	gRenderer.texture(self.texture, null, &dstRect);
+
+	// If clipping, default to clip width and height
+	if (clip != null)
+	{
+		dstRect.w = clip.w;
+		dstRect.h = clip.h;
+	}
+
+	// Use dimensions if given
+	if (width > 0)
+	{
+		dstRect.w = width;
+	}
+	if (height > 0)
+	{
+		dstRect.h = height;
+	}
+
+	// Render the texture
+	gRenderer.texture(self.texture, clip, &dstRect);
 }
 
 fn CInt LTexture.get_width(&self)

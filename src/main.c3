@@ -4,10 +4,11 @@ import sdl;
 
 const CInt SCREEN_WIDTH = 800;
 const CInt SCREEN_HEIGHT = 600;
+const float SPRITESIZE = 100;
 
 SDLWindow* gWindow;
 SDLRenderer* gRenderer;
-LTexture gBackgroundTexture, gStickyTexture;
+LTexture gSpriteSheetTexture;
 
 faultdef INIT_VIDEO, INIT_WINDOW;
 
@@ -31,15 +32,10 @@ fn void? load_media()
 {
 	fault err;
 
-	// load scene images
-	if (gBackgroundTexture.load_from_file("resources/background.png") == false)
+	// load sprite sheet
+	if (gSpriteSheetTexture.load_from_file("resources/circles.png") == false)
 	{
 		sdl::log_("Unable to load Up texture! SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
-	if (gStickyTexture.load_from_file("resources/sticky.png") == false)
-	{
-		sdl::log_("Unable to load Down texture! SDL error: %s\n", sdl::get_error());
 		err = LOAD_ERROR;
 	}
 
@@ -48,8 +44,7 @@ fn void? load_media()
 
 fn void close()
 {
-	gBackgroundTexture.destroy();
-	gStickyTexture.destroy();
+	gSpriteSheetTexture.destroy();
 
 	gRenderer.destroy();
 	gRenderer = null;
@@ -94,9 +89,57 @@ fn int main(String[] args)
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
 
+		// Init sprite clip
+		SDLFRect spriteClip = {0f, 0f, SPRITESIZE, SPRITESIZE};
+
+		// Init sprite size
+		SDLFRect spriteSize = {0f, 0f, SPRITESIZE, SPRITESIZE};
+
 		// Render the images on the screen
-		gBackgroundTexture.render(0f, 0f);
-		gStickyTexture.render(240f, 150f);
+
+		// Use top left sprite
+		spriteClip.x = 0f;
+		spriteClip.y = 0f;
+
+		// Set sprite size to original size
+		spriteSize.w = SPRITESIZE;
+		spriteSize.h = SPRITESIZE;
+
+		// Draw original sized sprite
+		gSpriteSheetTexture.render(0f, 0f, &spriteClip, spriteSize.w, spriteSize.h);
+
+		// Use top right sprite
+		spriteClip.x = SPRITESIZE;
+		spriteClip.y = 0f;
+
+		// Set sprite to half size
+		spriteSize.w = SPRITESIZE * 0.5f;
+		spriteSize.h = SPRITESIZE * 0.5f;
+
+		// Draw half sized sprite
+		gSpriteSheetTexture.render(SCREEN_WIDTH - spriteSize.w, 0f, &spriteClip, spriteSize.w, spriteSize.h);
+
+		// Use bottom left sprite
+		spriteClip.x = 0f;
+		spriteClip.y = SPRITESIZE;
+
+		// Set sprite to double size
+		spriteSize.w = SPRITESIZE * 2f;
+		spriteSize.h = SPRITESIZE * 2f;
+
+		// Draw double sized sprite
+		gSpriteSheetTexture.render(0f, SCREEN_HEIGHT - spriteSize.h, &spriteClip, spriteSize.w, spriteSize.h);
+
+		// Use bottom right sprite
+		spriteClip.x = SPRITESIZE;
+		spriteClip.y = SPRITESIZE;
+
+		// Squish vertically
+		spriteSize.w = SPRITESIZE;
+		spriteSize.h = SPRITESIZE * 0.5f;
+
+		// Draw double sized sprite
+		gSpriteSheetTexture.render(SCREEN_WIDTH - spriteSize.w, SCREEN_HEIGHT - spriteSize.h, &spriteClip, spriteSize.w, spriteSize.h);
 
 		// Update screen
 		gRenderer.present();
