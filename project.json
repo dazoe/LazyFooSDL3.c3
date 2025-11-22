@@ -6,7 +6,7 @@
   // Directories where C3 library files may be found.
   "dependency-search-paths": [ "lib" ],
   // Libraries to use for all targets.
-  "dependencies": [ "sdl3", "sdl3_image" ],
+  "dependencies": [ "sdl3", "sdl3_image", "sdl3_ttf" ],
   // Authors, optionally with email.
   "authors": [ "Dave Akers <dave@dazoe.net>" ],
   // Version using semantic versioning.
