@@ -86,6 +86,21 @@ fn void LTexture.render(&self, float x, float y, SDLFRect* clip = null, float wi
 	gRenderer.texture_rotated(self.texture, clip, &dstRect, degrees, center, flipmode);
 }
 
+fn void LTexture.set_color(&self, char r, char g, char b)
+{
+	self.texture.set_color_mod(r, g, b);
+}
+
+fn void LTexture.set_alpha(&self, char a)
+{
+	self.texture.set_alpha_mod(a);
+}
+
+fn void LTexture.set_blending(&self, SDLBlendMode mode)
+{
+	self.texture.set_blend_mode(mode);
+}
+
 fn CInt LTexture.get_width(&self)
 {
 	return self.width;
