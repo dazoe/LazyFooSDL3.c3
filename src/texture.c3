@@ -60,7 +60,7 @@ fn bool LTexture.load_from_file(&self, ZString path)
 	return self.texture != null;
 }
 
-fn void LTexture.render(&self, float x, float y, SDLFRect* clip = null, float width = ORIGINAL_SIZE, float height = ORIGINAL_SIZE)
+fn void LTexture.render(&self, float x, float y, SDLFRect* clip = null, float width = ORIGINAL_SIZE, float height = ORIGINAL_SIZE, double degrees = 0.0, SDLFPoint* center = null, SDLFlipMode flipmode = SDLFlipMode.NONE)
 {
 	// set texture position
 	SDLFRect dstRect = {x, y, (float)self.width, (float)self.height};
@@ -83,7 +83,7 @@ fn void LTexture.render(&self, float x, float y, SDLFRect* clip = null, float wi
 	}
 
 	// Render the texture
-	gRenderer.texture(self.texture, clip, &dstRect);
+	gRenderer.texture_rotated(self.texture, clip, &dstRect, degrees, center, flipmode);
 }
 
 fn CInt LTexture.get_width(&self)
