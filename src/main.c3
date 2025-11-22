@@ -20,25 +20,9 @@ SDLRenderer* gRenderer;
 // Global font
 TTFFont* gFont;
 
-// The texture we're rendering text to
+// Our global textures
 LTexture gTextTexture;
-
-
-enum ColorChannel : const inline int
-{
-	TEXTURE_RED,
-	TEXTURE_GREEN,
-	TEXTURE_BLUE,
-	TEXTURE_ALPHA,
-
-	BACKGROUND_RED,
-	BACKGROUND_GREEN,
-	BACKGROUND_BLUE,
-
-	TOTAL,
-	UNKNOWN,
-}
-
+LTexture gButtonSpriteTexture;
 
 faultdef INIT_VIDEO, INIT_WINDOW, INIT_TTF;
 
@@ -72,6 +56,13 @@ fn void? load_media()
 {
 	fault err;
 
+	// Load button sprite sheet
+	if (gButtonSpriteTexture.load_from_file("resources/ButtonSpriteSheet.png") == false)
+	{
+		sdl::log_("Could not load button sprite sheet. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
+
 	// Load global font
 	gFont = ttf::open_font("resources/HandDrawnShapes.ttf", 28);
 	if (gFont == null)
@@ -96,6 +87,7 @@ fn void? load_media()
 fn void close()
 {
 	// Clean up texture(s)
+	gButtonSpriteTexture.destroy();
 	gTextTexture.destroy();
 
 	// Clean up font
@@ -132,6 +124,14 @@ fn int main(String[] args)
 	// Event data
 	SDLEvent event;
 
+	// Place buttons
+	const NUM_BUTTONS = 4;
+	LButton[NUM_BUTTONS] buttons;
+	buttons[0].set_position( 0, 0);
+	buttons[1].set_position( SCREEN_WIDTH - LBUTTON_WIDTH, 0);
+	buttons[2].set_position( 0, SCREEN_HEIGHT - LBUTTON_HEIGHT);
+	buttons[3].set_position( SCREEN_WIDTH - LBUTTON_WIDTH, SCREEN_HEIGHT - LBUTTON_HEIGHT);
+
 	while(quit == false)
 	{
 		// Process events
@@ -142,11 +142,23 @@ fn int main(String[] args)
 			{
 				quit = true;
 			}
+
+			// Pass the event to each of the buttons
+			for (int i = 0; i < NUM_BUTTONS; i++)
+			{
+				buttons[i].handle_event(event);
+			}
 		}
 
 		// Fill the background
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
+
+		// Render the buttons
+		for (int i = 0; i < NUM_BUTTONS; i++)
+		{
+			buttons[i].render();
+		}
 
 		// Render the text
 		gTextTexture.render(
