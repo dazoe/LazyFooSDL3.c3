@@ -2,6 +2,7 @@ module lazyfoosdl3;
 
 import sdl;
 import sdl::img;
+import sdl::ttf;
 
 const ORIGINAL_SIZE = -1;
 
@@ -57,6 +58,38 @@ fn bool LTexture.load_from_file(&self, ZString path)
 	}
 
 	// return success if texture was loaded
+	return self.texture != null;
+}
+
+fn bool LTexture.load_from_rendered_text(&self, ZString text, SDLColor text_color)
+{
+	// Ensure previous texture is cleared out.
+	self.destroy();
+
+	// Load text surface
+	SDLSurface* textSurface = gFont.render_text_blended(text, 0, text_color);
+	if (textSurface == null)
+	{
+		sdl::log_("Unable to render text surface. SDL error: %s", sdl::get_error());
+	}
+	else
+	{
+		// Create texture from surface.
+		self.texture = gRenderer.create_texture_from_surface(textSurface);
+		if (self.texture == null)
+		{
+			sdl::log_("Unable to create texture from text surface. SDL error: %s", sdl::get_error());
+		}
+		else
+		{
+			self.width = textSurface.w;
+			self.height = textSurface.h;
+		}
+
+		// Free temporary surface
+		textSurface.destroy();
+	}
+
 	return self.texture != null;
 }
 

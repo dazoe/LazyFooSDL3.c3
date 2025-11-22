@@ -1,6 +1,7 @@
 module lazyfoosdl3;
 import std::io;
 import sdl;
+import sdl::ttf;
 
 const CInt SCREEN_WIDTH = 800;
 const CInt SCREEN_HEIGHT = 600;
@@ -9,9 +10,18 @@ const float SPRITESIZE = 100;
 const int COLOR_MAGNITUDE_COUNT = 3;
 const char[COLOR_MAGNITUDE_COUNT] COLOR_MAGNITUDES = {0x00, 0x7F, 0xFF};
 
+/* Global variables */
+// The main sdl window.
 SDLWindow* gWindow;
+
+// The renderer we will be using
 SDLRenderer* gRenderer;
-LTexture gColorsTexture;
+
+// Global font
+TTFFont* gFont;
+
+// The texture we're rendering text to
+LTexture gTextTexture;
 
 
 enum ColorChannel : const inline int
@@ -30,19 +40,29 @@ enum ColorChannel : const inline int
 }
 
 
-faultdef INIT_VIDEO, INIT_WINDOW;
+faultdef INIT_VIDEO, INIT_WINDOW, INIT_TTF;
 
 fn void? init()
 {
+	// Initialize SDL
 	if (sdl::init(SDLInitFlags.VIDEO) == false)
 	{
 		sdl::log_("SDL could not initialize! SDL error: %s\n", sdl::get_error());
 		return INIT_VIDEO?;
 	}
+
+	// Create window and renderer
 	if (sdl::create_window_and_renderer("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, 0, &gWindow, &gRenderer) == false)
 	{
 		sdl::log_("Window could not be created! SDL error: %s\n", sdl::get_error());
 		return INIT_WINDOW?;
+	}
+
+	// Initialize SDL_TTF
+	if (ttf::init() == false)
+	{
+		sdl::log_("SDL_ttf could not initialize. SDL error: %s\n", sdl::get_error());
+		return INIT_TTF?;
 	}
 }
 
@@ -52,11 +72,22 @@ fn void? load_media()
 {
 	fault err;
 
-	// load sprite sheet
-	if (gColorsTexture.load_from_file("resources/rgb.png") == false)
+	// Load global font
+	gFont = ttf::open_font("resources/HandDrawnShapes.ttf", 28);
+	if (gFont == null)
 	{
-		sdl::log_("Unable to load Up texture! SDL error: %s\n", sdl::get_error());
+		sdl::log_("Could not load ttf font. SDL error: %s\n", sdl::get_error());
 		err = LOAD_ERROR;
+	}
+	else
+	{
+		// Load text (black)
+		SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
+		if (gTextTexture.load_from_rendered_text("The quick brown fox jumps over the lazy dog!", textColor) == false)
+		{
+			sdl::log_("Could not load text texture. SDL error: %s\n", sdl::get_error());
+			err = LOAD_ERROR;
+		}
 	}
 
 	return err?;
@@ -64,13 +95,21 @@ fn void? load_media()
 
 fn void close()
 {
-	gColorsTexture.destroy();
+	// Clean up texture(s)
+	gTextTexture.destroy();
 
+	// Clean up font
+	gFont.close();
+	gFont = null;
+
+	// Clean up window and renderer
 	gRenderer.destroy();
 	gRenderer = null;
 	gWindow.destroy();
 	gWindow = null;
 
+	// Quit SDL and SDL_TTF
+	ttf::quit();
 	sdl::quit();
 }
 
@@ -86,20 +125,6 @@ fn int main(String[] args)
 		io::printfn("load_media returned fault: %s", err);
 		return 2;
 	}
-
-	// Initialize colors
-	char[ColorChannel.TOTAL] colorChannelIndices;
-	colorChannelIndices[ColorChannel.TEXTURE_RED] = 2;
-	colorChannelIndices[ColorChannel.TEXTURE_GREEN] = 2;
-	colorChannelIndices[ColorChannel.TEXTURE_BLUE] = 2;
-	colorChannelIndices[ColorChannel.TEXTURE_ALPHA] = 2;
-
-	colorChannelIndices[ColorChannel.BACKGROUND_RED] = 2;
-	colorChannelIndices[ColorChannel.BACKGROUND_GREEN] = 2;
-	colorChannelIndices[ColorChannel.BACKGROUND_BLUE] = 2;
-
-	// Initialize blending
-	gColorsTexture.set_blending(sdl::BLENDMODE_BLEND);
 
 	// The quit flag
 	bool quit;
@@ -117,72 +142,16 @@ fn int main(String[] args)
 			{
 				quit = true;
 			}
-			else if (event.type == SDLEventType.KEY_DOWN)
-			{
-				// Check for channel key
-				ColorChannel channelToUpdate = ColorChannel.UNKNOWN;
-				switch (event.key.key)
-				{
-					// Update texture color channel
-					case sdl::K_A:
-						channelToUpdate = ColorChannel.TEXTURE_RED;
-					case sdl::K_S:
-						channelToUpdate = ColorChannel.TEXTURE_GREEN;
-					case sdl::K_D:
-						channelToUpdate = ColorChannel.TEXTURE_BLUE;
-					case sdl::K_F:
-						channelToUpdate = ColorChannel.TEXTURE_ALPHA;
-
-					// Update background color channel
-					case sdl::K_Q:
-						channelToUpdate = ColorChannel.BACKGROUND_RED;
-					case sdl::K_W:
-						channelToUpdate = ColorChannel.BACKGROUND_GREEN;
-					case sdl::K_E:
-						channelToUpdate = ColorChannel.BACKGROUND_BLUE;
-				}
-				if (channelToUpdate != ColorChannel.UNKNOWN)
-				{
-					// Cycle through channel values
-					colorChannelIndices[channelToUpdate]++;
-					if (colorChannelIndices[channelToUpdate] >= COLOR_MAGNITUDE_COUNT)
-					{
-						colorChannelIndices[channelToUpdate] = 0;
-					}
-
-					// Write color values to console.
-					sdl::log_("Texture - R:%3d G:%3d B:%3d A:%3d | Background - R:%3d G:%3d B:%3d",
-						COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.TEXTURE_RED]],
-						COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.TEXTURE_GREEN]],
-						COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.TEXTURE_BLUE]],
-						COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.TEXTURE_ALPHA]],
-						COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.BACKGROUND_RED]],
-						COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.BACKGROUND_GREEN]],
-						COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.BACKGROUND_BLUE]],
-					);
-				}
-			}
 		}
 
 		// Fill the background
-		gRenderer.set_draw_color(
-			COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.BACKGROUND_RED]],
-			COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.BACKGROUND_GREEN]],
-			COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.BACKGROUND_BLUE]],
-			0xFF);
+		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
 
-		// Set textrure color and render
-		gColorsTexture.set_color(
-			COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.TEXTURE_RED]],
-			COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.TEXTURE_GREEN]],
-			COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.TEXTURE_BLUE]],
-		);
-		gColorsTexture.set_alpha(
-			COLOR_MAGNITUDES[colorChannelIndices[ColorChannel.TEXTURE_ALPHA]],
-		);
-		gColorsTexture.render(
-			((float)SCREEN_WIDTH - gColorsTexture.get_width()) / 2.0f, ((float)SCREEN_HEIGHT - gColorsTexture.get_height()) / 2.0f);
+		// Render the text
+		gTextTexture.render(
+			((float)SCREEN_WIDTH - gTextTexture.get_width()) / 2f,
+			((float)SCREEN_HEIGHT - gTextTexture.get_height()) / 2f);
 
 		// Update screen
 		gRenderer.present();
