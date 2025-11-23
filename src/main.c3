@@ -115,8 +115,8 @@ fn int main(String[] args)
 	// Event data
 	SDLEvent event;
 
-	// Timer start time
-	ulong startTime = 0;
+	// Application timer
+	LTimer timer;
 
 	// String
 	DString timeText;
@@ -132,23 +132,42 @@ fn int main(String[] args)
 				quit = true;
 			}
 
-			// Reset start time on return press
-			if (event.type == SDLEventType.KEY_DOWN && event.key.key == sdl::K_RETURN)
+			// Check for key presses
+			if (event.type == SDLEventType.KEY_DOWN)
 			{
-				// Set the new start time
-				startTime = sdl::get_ticks();
+				// Start / Stop
+				if (event.key.key == sdl::K_RETURN)
+				{
+					if (timer.isStarted())
+					{
+						timer.stop();
+					}
+					else
+					{
+						timer.start();
+					}
+				}
+				
+				// Pause / Unpause
+				if (event.key.key == sdl::K_SPACE)
+				{
+					if (timer.isPaused())
+					{
+						timer.unpause();
+					}
+					else
+					{
+						timer.pause();
+					}
+				}
 			}
 		}
 
-		//If the timer has started
-		if (startTime != 0)
-		{
-			// update text
-			timeText.chop(0);
-			io::fprintf(&timeText, "Milliseconds since start time %d", sdl::get_ticks()-startTime)!!;
-			SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
-			gTextTexture.load_from_rendered_text(timeText.zstr_view(), textColor);
-		}
+		// update text
+		timeText.chop(0);
+		io::fprintf(&timeText, "Milliseconds since start time %f", ((double)timer.getTicksNS() / 1000000))!!;
+		SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
+		gTextTexture.load_from_rendered_text(timeText.zstr_view(), textColor);
 
 		// Fill the background
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
