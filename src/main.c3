@@ -5,10 +5,7 @@ import sdl::ttf;
 
 const CInt SCREEN_WIDTH = 800;
 const CInt SCREEN_HEIGHT = 600;
-const float SPRITESIZE = 100;
-// Set color constants
-const int COLOR_MAGNITUDE_COUNT = 3;
-const char[COLOR_MAGNITUDE_COUNT] COLOR_MAGNITUDES = {0x00, 0x7F, 0xFF};
+const int SCREEN_FPS = 60;
 
 /* Global variables */
 // The main sdl window.
@@ -23,7 +20,7 @@ TTFFont* gFont;
 // Our global textures
 LTexture gTextTexture;
 
-faultdef INIT_VIDEO, INIT_WINDOW, INIT_TTF;
+faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_TTF;
 
 fn void? init()
 {
@@ -40,6 +37,14 @@ fn void? init()
 		sdl::log_("Window could not be created! SDL error: %s\n", sdl::get_error());
 		return INIT_WINDOW?;
 	}
+
+	// Enable VSync
+	if (gRenderer.set_vsync(1) == false)
+	{
+		sdl::log_("Could not set vsync. SDL error: %s\n", sdl::get_error());
+		return INIT_VSYNC?;
+	}
+
 
 	// Initialize SDL_TTF
 	if (ttf::init() == false)
@@ -115,14 +120,27 @@ fn int main(String[] args)
 	// Event data
 	SDLEvent event;
 
-	// Application timer
-	LTimer timer;
+	// VSync toggle
+	bool vsyncEnabled;
+
+	// FSP cap toggle
+	bool fpsCapEnabled;
+
+	// Timer to cap frame rate
+	LTimer capTimer;
+
+	// Time spent rendering
+	ulong nsRendering = 0;
 
 	// String
 	DString timeText;
 
+	// The main loop
 	while(quit == false)
 	{
+		// Start frame timer
+		capTimer.start();
+
 		// Process events
 		while(sdl::poll_event(&event) == true)
 		{
@@ -135,39 +153,32 @@ fn int main(String[] args)
 			// Check for key presses
 			if (event.type == SDLEventType.KEY_DOWN)
 			{
-				// Start / Stop
+				// VSync toggle
 				if (event.key.key == sdl::K_RETURN)
 				{
-					if (timer.isStarted())
-					{
-						timer.stop();
-					}
-					else
-					{
-						timer.start();
-					}
+					vsyncEnabled = !vsyncEnabled;
+					gRenderer.set_vsync(vsyncEnabled ? 1 : sdl::RENDERER_VSYNC_DISABLED);
 				}
 				
-				// Pause / Unpause
+				// FPS cap toggle
 				if (event.key.key == sdl::K_SPACE)
 				{
-					if (timer.isPaused())
-					{
-						timer.unpause();
-					}
-					else
-					{
-						timer.pause();
-					}
+					fpsCapEnabled = !fpsCapEnabled;
 				}
 			}
 		}
 
 		// update text
-		timeText.chop(0);
-		io::fprintf(&timeText, "Milliseconds since start time %f", ((double)timer.getTicksNS() / 1000000))!!;
-		SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
-		gTextTexture.load_from_rendered_text(timeText.zstr_view(), textColor);
+		if (nsRendering != 0)
+		{
+			double framesPerSecond = 1000000000.0 / (double)nsRendering;
+			timeText.chop(0);
+			io::fprintf(&timeText, "Frames per second %s %s %f",
+				(vsyncEnabled ? "(VSync)" : "" ), (fpsCapEnabled ? "(Cap)" : ""),
+				framesPerSecond)!!;
+			SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
+			gTextTexture.load_from_rendered_text(timeText.zstr_view(), textColor);
+		}
 
 		// Fill the background
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
@@ -180,6 +191,21 @@ fn int main(String[] args)
 
 		// Update screen
 		gRenderer.present();
+
+		// Get time to render frame
+		nsRendering = capTimer.getTicksNS();
+
+		// If time remaining in frame
+		ulong nsPerFrame = 1000000000 / SCREEN_FPS;
+		if (fpsCapEnabled && nsRendering < nsPerFrame)
+		{
+			// Sleep remaining time
+			ulong sleepTime = nsPerFrame - nsRendering;
+			sdl::delay_ns(sleepTime);
+
+			// Get frame time + sleep time
+			nsRendering = capTimer.getTicksNS();
+		}
 	}
 
 	close();
