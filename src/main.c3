@@ -19,6 +19,7 @@ TTFFont* gFont;
 
 // Our global textures
 LTexture gTextTexture;
+LTexture gDotTexture;
 
 faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_TTF;
 
@@ -60,6 +61,13 @@ fn void? load_media()
 {
 	fault err;
 
+	// Load the dot
+	if (gDotTexture.load_from_file("resources/dot.png") == false)
+	{
+		sdl::log_("Unable to load dot texture. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
+
 	// Load global font
 	gFont = ttf::open_font("resources/HandDrawnShapes.ttf", 28);
 	if (gFont == null)
@@ -85,6 +93,7 @@ fn void close()
 {
 	// Clean up texture(s)
 	gTextTexture.destroy();
+	gDotTexture.destroy();
 
 	// Clean up font
 	gFont.close();
@@ -135,6 +144,9 @@ fn int main(String[] args)
 	// String
 	DString timeText;
 
+	// Dot we will be moving around
+	Dot dot;
+
 	// The main loop
 	while(quit == false)
 	{
@@ -166,7 +178,12 @@ fn int main(String[] args)
 					fpsCapEnabled = !fpsCapEnabled;
 				}
 			}
+
+			dot.handle_event(event);
 		}
+
+		// Update the dot
+		dot.move();
 
 		// update text
 		if (nsRendering != 0)
@@ -183,6 +200,10 @@ fn int main(String[] args)
 		// Fill the background
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
+
+
+		// Render the dot
+		dot.render();
 
 		// Render text on screen
 		gTextTexture.render(
