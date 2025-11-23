@@ -22,7 +22,6 @@ TTFFont* gFont;
 
 // Our global textures
 LTexture gTextTexture;
-LTexture gButtonSpriteTexture;
 
 faultdef INIT_VIDEO, INIT_WINDOW, INIT_TTF;
 
@@ -56,13 +55,6 @@ fn void? load_media()
 {
 	fault err;
 
-	// Load button sprite sheet
-	if (gButtonSpriteTexture.load_from_file("resources/ButtonSpriteSheet.png") == false)
-	{
-		sdl::log_("Could not load button sprite sheet. SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
-
 	// Load global font
 	gFont = ttf::open_font("resources/HandDrawnShapes.ttf", 28);
 	if (gFont == null)
@@ -74,7 +66,7 @@ fn void? load_media()
 	{
 		// Load text (black)
 		SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
-		if (gTextTexture.load_from_rendered_text("The quick brown fox jumps over the lazy dog!", textColor) == false)
+		if (gTextTexture.load_from_rendered_text("Press return to start timer!", textColor) == false)
 		{
 			sdl::log_("Could not load text texture. SDL error: %s\n", sdl::get_error());
 			err = LOAD_ERROR;
@@ -87,7 +79,6 @@ fn void? load_media()
 fn void close()
 {
 	// Clean up texture(s)
-	gButtonSpriteTexture.destroy();
 	gTextTexture.destroy();
 
 	// Clean up font
@@ -124,13 +115,11 @@ fn int main(String[] args)
 	// Event data
 	SDLEvent event;
 
-	// Place buttons
-	const NUM_BUTTONS = 4;
-	LButton[NUM_BUTTONS] buttons;
-	buttons[0].set_position( 0, 0);
-	buttons[1].set_position( SCREEN_WIDTH - LBUTTON_WIDTH, 0);
-	buttons[2].set_position( 0, SCREEN_HEIGHT - LBUTTON_HEIGHT);
-	buttons[3].set_position( SCREEN_WIDTH - LBUTTON_WIDTH, SCREEN_HEIGHT - LBUTTON_HEIGHT);
+	// Timer start time
+	ulong startTime = 0;
+
+	// String
+	DString timeText;
 
 	while(quit == false)
 	{
@@ -143,24 +132,29 @@ fn int main(String[] args)
 				quit = true;
 			}
 
-			// Pass the event to each of the buttons
-			for (int i = 0; i < NUM_BUTTONS; i++)
+			// Reset start time on return press
+			if (event.type == SDLEventType.KEY_DOWN && event.key.key == sdl::K_RETURN)
 			{
-				buttons[i].handle_event(event);
+				// Set the new start time
+				startTime = sdl::get_ticks();
 			}
+		}
+
+		//If the timer has started
+		if (startTime != 0)
+		{
+			// update text
+			timeText.chop(0);
+			io::fprintf(&timeText, "Milliseconds since start time %d", sdl::get_ticks()-startTime)!!;
+			SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
+			gTextTexture.load_from_rendered_text(timeText.zstr_view(), textColor);
 		}
 
 		// Fill the background
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
 
-		// Render the buttons
-		for (int i = 0; i < NUM_BUTTONS; i++)
-		{
-			buttons[i].render();
-		}
-
-		// Render the text
+		// Render text on screen
 		gTextTexture.render(
 			((float)SCREEN_WIDTH - gTextTexture.get_width()) / 2f,
 			((float)SCREEN_HEIGHT - gTextTexture.get_height()) / 2f);
