@@ -19,7 +19,7 @@ TTFFont* gFont;
 
 // Our global textures
 LTexture gTextTexture;
-LTexture gDotTexture;
+LTexture gSpriteSheetTexture;
 
 faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_TTF;
 
@@ -46,7 +46,6 @@ fn void? init()
 		return INIT_VSYNC?;
 	}
 
-
 	// Initialize SDL_TTF
 	if (ttf::init() == false)
 	{
@@ -61,8 +60,8 @@ fn void? load_media()
 {
 	fault err;
 
-	// Load the dot
-	if (gDotTexture.load_from_file("resources/dot.png") == false)
+	// Load the sprite sheet
+	if (gSpriteSheetTexture.load_from_file("resources/green_idle_240x440.png") == false)
 	{
 		sdl::log_("Unable to load dot texture. SDL error: %s\n", sdl::get_error());
 		err = LOAD_ERROR;
@@ -93,7 +92,7 @@ fn void close()
 {
 	// Clean up texture(s)
 	gTextTexture.destroy();
-	gDotTexture.destroy();
+	gSpriteSheetTexture.destroy();
 
 	// Clean up font
 	gFont.close();
@@ -130,10 +129,10 @@ fn int main(String[] args)
 	SDLEvent event;
 
 	// VSync toggle
-	bool vsyncEnabled;
+	bool vsyncEnabled = true;
 
 	// FSP cap toggle
-	bool fpsCapEnabled;
+	bool fpsCapEnabled = true;
 
 	// Timer to cap frame rate
 	LTimer capTimer;
@@ -144,8 +143,19 @@ fn int main(String[] args)
 	// String
 	DString timeText;
 
-	// Dot we will be moving around
-	Dot dot;
+	// Current frame
+	int frame = -1;
+
+	// Setup animation sprites
+	const SPRITE_WIDTH = 240;
+	const SPRITE_HEIGHT = 440;
+	const int NUM_SPRITES = 3;
+	const int FRAMES_PER_SPRITE = 10;
+	SDLFRect[NUM_SPRITES] spriteClips = {
+		{SPRITE_WIDTH * 0f, 0f, SPRITE_WIDTH, SPRITE_HEIGHT},
+		{SPRITE_WIDTH * 1f, 0f, SPRITE_WIDTH, SPRITE_HEIGHT},
+		{SPRITE_WIDTH * 2f, 0f, SPRITE_WIDTH, SPRITE_HEIGHT},
+	};
 
 	// The main loop
 	while(quit == false)
@@ -178,12 +188,16 @@ fn int main(String[] args)
 					fpsCapEnabled = !fpsCapEnabled;
 				}
 			}
-
-			dot.handle_event(event);
 		}
 
-		// Update the dot
-		dot.move();
+		// goto next frame
+		frame++;
+		
+		// cycle animation
+		if (frame / FRAMES_PER_SPRITE >= NUM_SPRITES)
+		{
+			frame = 0;
+		}
 
 		// update text
 		if (nsRendering != 0)
@@ -201,9 +215,11 @@ fn int main(String[] args)
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
 
-
-		// Render the dot
-		dot.render();
+		// Render the sprite
+		gSpriteSheetTexture.render(
+			(SCREEN_WIDTH - SPRITE_WIDTH) / 2f,
+			(SCREEN_HEIGHT - SPRITE_HEIGHT) / 2,
+			&spriteClips[frame / FRAMES_PER_SPRITE]);
 
 		// Render text on screen
 		gTextTexture.render(
