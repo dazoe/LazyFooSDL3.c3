@@ -21,12 +21,20 @@ TTFFont* gFont;
 LTexture gTextTexture;
 LTexture gSpriteSheetTexture;
 
-faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_TTF;
+// Global audio devices
+SDLAudioDeviceID gMusicDevice;
+SDLAudioDeviceID gEffectsDevice;
+
+// Music
+Sound gMusic;
+Sound[4] gSounds;
+
+faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_AUDIO, INIT_TTF;
 
 fn void? init()
 {
 	// Initialize SDL
-	if (sdl::init(SDLInitFlags.VIDEO) == false)
+	if (sdl::init(SDLInitFlags.VIDEO | SDLInitFlags.AUDIO) == false)
 	{
 		sdl::log_("SDL could not initialize! SDL error: %s\n", sdl::get_error());
 		return INIT_VIDEO?;
@@ -51,6 +59,20 @@ fn void? init()
 	{
 		sdl::log_("SDL_ttf could not initialize. SDL error: %s\n", sdl::get_error());
 		return INIT_TTF?;
+	}
+
+	// Open default audio playback device.
+	gMusicDevice = sdl::open_audio_device(sdl::AUDIO_DEVICE_DEFAULT_PLAYBACK, null);
+	if (gMusicDevice == 0)
+	{
+		sdl::log_("Could not open default playback device. SDL error: %s\n", sdl::get_error());
+		return INIT_AUDIO?;
+	}
+	gEffectsDevice = sdl::open_audio_device(sdl::AUDIO_DEVICE_DEFAULT_PLAYBACK, null);
+	if (gEffectsDevice == 0)
+	{
+		sdl::log_("Could not open default playback device. SDL error: %s\n", sdl::get_error());
+		return INIT_AUDIO?;
 	}
 }
 
@@ -85,11 +107,54 @@ fn void? load_media()
 		}
 	}
 
+	// Set gTextTexture to a static string
+	gTextTexture.load_from_rendered_text(
+		"Press <space> to play / pause music\n"
+		"Press 0 to stop music\n"
+		"Change music volume with Q and W\n"
+		"Press 1,2,3,4 to play a sound effect.",
+		{0x00, 0x00, 0x00, 0xFF});
+
+	// Load music wav
+	if (gMusic.load_from_file(gMusicDevice, "resources/Ove - Earth Is All We Have.wav") == false) {
+		sdl::log_("Could not load music. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
+	if (gSounds[0].load_from_file(gEffectsDevice, "resources/FX/pepSound1.mp3.wav") == false) {
+		sdl::log_("Could not load pepSound1.mp3.wav. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
+	if (gSounds[1].load_from_file(gEffectsDevice, "resources/FX/phaseJump1.mp3.wav") == false) {
+		sdl::log_("Could not load phaseJump.mp3.wav. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
+	if (gSounds[2].load_from_file(gEffectsDevice, "resources/FX/phaserDown1.mp3.wav") == false) {
+		sdl::log_("Could not load phaserDown1.mp3.wav. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
+	if (gSounds[3].load_from_file(gEffectsDevice, "resources/FX/phaserUp1.mp3.wav") == false) {
+		sdl::log_("Could not load phaserUp1.mp3.wav. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
+
 	return err?;
 }
 
 fn void close()
 {
+	// Clean up sounds
+	gMusic.destroy();
+	gSounds[0].destroy();
+	gSounds[1].destroy();
+	gSounds[2].destroy();
+	gSounds[3].destroy();
+
+	// Close audio devices.
+	gEffectsDevice.close();
+	gEffectsDevice = 0;
+	gMusicDevice.close();
+	gMusicDevice = 0;
+
 	// Clean up texture(s)
 	gTextTexture.destroy();
 	gSpriteSheetTexture.destroy();
@@ -128,41 +193,12 @@ fn int main(String[] args)
 	// Event data
 	SDLEvent event;
 
-	// VSync toggle
-	bool vsyncEnabled = true;
-
-	// FSP cap toggle
-	bool fpsCapEnabled = true;
-
-	// Timer to cap frame rate
-	LTimer capTimer;
-
-	// Time spent rendering
-	ulong nsRendering = 0;
-
 	// String
 	DString timeText;
-
-	// Current frame
-	int frame = -1;
-
-	// Setup animation sprites
-	const SPRITE_WIDTH = 240;
-	const SPRITE_HEIGHT = 440;
-	const int NUM_SPRITES = 3;
-	const int FRAMES_PER_SPRITE = 10;
-	SDLFRect[NUM_SPRITES] spriteClips = {
-		{SPRITE_WIDTH * 0f, 0f, SPRITE_WIDTH, SPRITE_HEIGHT},
-		{SPRITE_WIDTH * 1f, 0f, SPRITE_WIDTH, SPRITE_HEIGHT},
-		{SPRITE_WIDTH * 2f, 0f, SPRITE_WIDTH, SPRITE_HEIGHT},
-	};
 
 	// The main loop
 	while(quit == false)
 	{
-		// Start frame timer
-		capTimer.start();
-
 		// Process events
 		while(sdl::poll_event(&event) == true)
 		{
@@ -175,51 +211,58 @@ fn int main(String[] args)
 			// Check for key presses
 			if (event.type == SDLEventType.KEY_DOWN)
 			{
-				// VSync toggle
-				if (event.key.key == sdl::K_RETURN)
+				switch (event.key.key)
 				{
-					vsyncEnabled = !vsyncEnabled;
-					gRenderer.set_vsync(vsyncEnabled ? 1 : sdl::RENDERER_VSYNC_DISABLED);
-				}
-				
-				// FPS cap toggle
-				if (event.key.key == sdl::K_SPACE)
-				{
-					fpsCapEnabled = !fpsCapEnabled;
+					// Pause / resume music
+					case sdl::K_SPACE:
+						if (gMusicDevice.paused())
+						{
+							gMusicDevice.resume();
+						}
+						else
+						{
+							gMusicDevice.pause();
+						}
+					// Stop music, ie: pause and clear the audio stream buffer
+					case sdl::K_0:
+						gMusicDevice.pause();
+						gMusic.stop();
+					case sdl::K_1:
+						gSounds[0].play();
+					case sdl::K_2:
+						gSounds[1].play();
+					case sdl::K_3:
+						gSounds[2].play();
+					case sdl::K_4:
+						gSounds[3].play();
+
+					// Adjust music volume using q and w
+					case sdl::K_Q:
+						float gain = gMusicDevice.get_gain() - 0.1f;
+						// Clamp to silent.
+						if (gain < 0) {
+							gain = 0;
+						}
+						gMusicDevice.set_gain(gain);
+						io::printfn("Music gain: %f", gain);
+					case sdl::K_W:
+						float gain = gMusicDevice.get_gain() + 0.1f;
+						// Clamp to +5 over amplifacation.
+						if (gain > 5) {
+							gain = 5;
+						}
+						gMusicDevice.set_gain(gain);
+						io::printfn("Music gain: %f", gain);
 				}
 			}
 		}
 
-		// goto next frame
-		frame++;
-		
-		// cycle animation
-		if (frame / FRAMES_PER_SPRITE >= NUM_SPRITES)
-		{
-			frame = 0;
-		}
-
-		// update text
-		if (nsRendering != 0)
-		{
-			double framesPerSecond = 1000000000.0 / (double)nsRendering;
-			timeText.chop(0);
-			io::fprintf(&timeText, "Frames per second %s %s %f",
-				(vsyncEnabled ? "(VSync)" : "" ), (fpsCapEnabled ? "(Cap)" : ""),
-				framesPerSecond)!!;
-			SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
-			gTextTexture.load_from_rendered_text(timeText.zstr_view(), textColor);
-		}
+		// always call music play to keep music buffer filled.
+		gMusic.play();
 
 		// Fill the background
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
-
-		// Render the sprite
-		gSpriteSheetTexture.render(
-			(SCREEN_WIDTH - SPRITE_WIDTH) / 2f,
-			(SCREEN_HEIGHT - SPRITE_HEIGHT) / 2,
-			&spriteClips[frame / FRAMES_PER_SPRITE]);
 
 		// Render text on screen
 		gTextTexture.render(
@@ -229,20 +272,6 @@ fn int main(String[] args)
 		// Update screen
 		gRenderer.present();
 
-		// Get time to render frame
-		nsRendering = capTimer.getTicksNS();
-
-		// If time remaining in frame
-		ulong nsPerFrame = 1000000000 / SCREEN_FPS;
-		if (fpsCapEnabled && nsRendering < nsPerFrame)
-		{
-			// Sleep remaining time
-			ulong sleepTime = nsPerFrame - nsRendering;
-			sdl::delay_ns(sleepTime);
-
-			// Get frame time + sleep time
-			nsRendering = capTimer.getTicksNS();
-		}
 	}
 
 	close();

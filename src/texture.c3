@@ -67,7 +67,7 @@ fn bool LTexture.load_from_rendered_text(&self, ZString text, SDLColor text_colo
 	self.destroy();
 
 	// Load text surface
-	SDLSurface* textSurface = gFont.render_text_blended(text, 0, text_color);
+	SDLSurface* textSurface = gFont.render_text_blended_wrapped(text, 0, text_color, 0);
 	if (textSurface == null)
 	{
 		sdl::log_("Unable to render text surface. SDL error: %s", sdl::get_error());
