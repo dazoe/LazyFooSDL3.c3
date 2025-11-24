@@ -19,15 +19,6 @@ TTFFont* gFont;
 
 // Our global textures
 LTexture gTextTexture;
-LTexture gSpriteSheetTexture;
-
-// Global audio devices
-SDLAudioDeviceID gMusicDevice;
-SDLAudioDeviceID gEffectsDevice;
-
-// Music
-Sound gMusic;
-Sound[4] gSounds;
 
 faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_AUDIO, INIT_TTF;
 
@@ -60,20 +51,6 @@ fn void? init()
 		sdl::log_("SDL_ttf could not initialize. SDL error: %s\n", sdl::get_error());
 		return INIT_TTF?;
 	}
-
-	// Open default audio playback device.
-	gMusicDevice = sdl::open_audio_device(sdl::AUDIO_DEVICE_DEFAULT_PLAYBACK, null);
-	if (gMusicDevice == 0)
-	{
-		sdl::log_("Could not open default playback device. SDL error: %s\n", sdl::get_error());
-		return INIT_AUDIO?;
-	}
-	gEffectsDevice = sdl::open_audio_device(sdl::AUDIO_DEVICE_DEFAULT_PLAYBACK, null);
-	if (gEffectsDevice == 0)
-	{
-		sdl::log_("Could not open default playback device. SDL error: %s\n", sdl::get_error());
-		return INIT_AUDIO?;
-	}
 }
 
 faultdef LOAD_ERROR;
@@ -81,13 +58,6 @@ faultdef LOAD_ERROR;
 fn void? load_media()
 {
 	fault err;
-
-	// Load the sprite sheet
-	if (gSpriteSheetTexture.load_from_file("resources/green_idle_240x440.png") == false)
-	{
-		sdl::log_("Unable to load dot texture. SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
 
 	// Load global font
 	gFont = ttf::open_font("resources/HandDrawnShapes.ttf", 28);
@@ -109,55 +79,16 @@ fn void? load_media()
 
 	// Set gTextTexture to a static string
 	gTextTexture.load_from_rendered_text(
-		"Press <space> to play / pause music\n"
-		"Press 0 to stop music\n"
-		"Change music volume with Q and W\n"
-		"Press 1,2,3,4 to play a sound effect.",
+		"Move the square with <up>, <down>, <left>, and <right>.",
 		{0x00, 0x00, 0x00, 0xFF});
-
-	// Load music wav
-	if (gMusic.load_from_file(gMusicDevice, "resources/Ove - Earth Is All We Have.wav") == false) {
-		sdl::log_("Could not load music. SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
-	if (gSounds[0].load_from_file(gEffectsDevice, "resources/FX/pepSound1.mp3.wav") == false) {
-		sdl::log_("Could not load pepSound1.mp3.wav. SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
-	if (gSounds[1].load_from_file(gEffectsDevice, "resources/FX/phaseJump1.mp3.wav") == false) {
-		sdl::log_("Could not load phaseJump.mp3.wav. SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
-	if (gSounds[2].load_from_file(gEffectsDevice, "resources/FX/phaserDown1.mp3.wav") == false) {
-		sdl::log_("Could not load phaserDown1.mp3.wav. SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
-	if (gSounds[3].load_from_file(gEffectsDevice, "resources/FX/phaserUp1.mp3.wav") == false) {
-		sdl::log_("Could not load phaserUp1.mp3.wav. SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
 
 	return err?;
 }
 
 fn void close()
 {
-	// Clean up sounds
-	gMusic.destroy();
-	gSounds[0].destroy();
-	gSounds[1].destroy();
-	gSounds[2].destroy();
-	gSounds[3].destroy();
-
-	// Close audio devices.
-	gEffectsDevice.close();
-	gEffectsDevice = 0;
-	gMusicDevice.close();
-	gMusicDevice = 0;
-
 	// Clean up texture(s)
 	gTextTexture.destroy();
-	gSpriteSheetTexture.destroy();
 
 	// Clean up font
 	gFont.close();
@@ -172,6 +103,46 @@ fn void close()
 	// Quit SDL and SDL_TTF
 	ttf::quit();
 	sdl::quit();
+}
+
+fn bool check_collision(SDLRect a, SDLRect b)
+{
+	// Calculate the sides of rect a
+	CInt aMinX = a.x;
+	CInt aMaxX = a.x + a.w;
+	CInt aMinY = a.y;
+	CInt aMaxY = a.y + a.h;
+
+	// Calculate the sides of rect b
+	CInt bMinX = b.x;
+	CInt bMaxX = b.x + b.w;
+	CInt bMinY = b.y;
+	CInt bMaxY = b.y + b.h;
+	
+	// If the left side of a is to the right of b
+	if (aMinX >= bMaxX)
+	{
+		return false;
+	}
+	// If the right side of a is to the left of b
+	if (aMaxX <= bMinX)
+	{
+		return false;
+	}
+
+	// If the top of a is below b
+	if (aMinY >= bMaxY)
+	{
+		return false;
+	}
+	// If the bottom of a is above b
+	if (aMaxY <= bMinY)
+	{
+		return false;
+	}
+
+	// If none of the sides are outside b
+	return true;
 }
 
 fn int main(String[] args)
@@ -196,6 +167,15 @@ fn int main(String[] args)
 	// String
 	DString timeText;
 
+	// Square we will be moving
+	Square square;
+	square.init();
+
+	// The will we will be colliding with
+	const WALL_WIDTH = SQUARE_SIZE;
+	const WALL_HEIGHT = SCREEN_HEIGHT - SQUARE_SIZE * 2;
+	SDLRect wall = {(SCREEN_WIDTH - WALL_WIDTH) / 2, (SCREEN_HEIGHT - WALL_HEIGHT) / 2, WALL_WIDTH, WALL_HEIGHT};
+
 	// The main loop
 	while(quit == false)
 	{
@@ -208,61 +188,23 @@ fn int main(String[] args)
 				quit = true;
 			}
 
-			// Check for key presses
-			if (event.type == SDLEventType.KEY_DOWN)
-			{
-				switch (event.key.key)
-				{
-					// Pause / resume music
-					case sdl::K_SPACE:
-						if (gMusicDevice.paused())
-						{
-							gMusicDevice.resume();
-						}
-						else
-						{
-							gMusicDevice.pause();
-						}
-					// Stop music, ie: pause and clear the audio stream buffer
-					case sdl::K_0:
-						gMusicDevice.pause();
-						gMusic.stop();
-					case sdl::K_1:
-						gSounds[0].play();
-					case sdl::K_2:
-						gSounds[1].play();
-					case sdl::K_3:
-						gSounds[2].play();
-					case sdl::K_4:
-						gSounds[3].play();
-
-					// Adjust music volume using q and w
-					case sdl::K_Q:
-						float gain = gMusicDevice.get_gain() - 0.1f;
-						// Clamp to silent.
-						if (gain < 0) {
-							gain = 0;
-						}
-						gMusicDevice.set_gain(gain);
-						io::printfn("Music gain: %f", gain);
-					case sdl::K_W:
-						float gain = gMusicDevice.get_gain() + 0.1f;
-						// Clamp to +5 over amplifacation.
-						if (gain > 5) {
-							gain = 5;
-						}
-						gMusicDevice.set_gain(gain);
-						io::printfn("Music gain: %f", gain);
-				}
-			}
+			// Send events to the square
+			square.handle_event(&event);
 		}
 
-		// always call music play to keep music buffer filled.
-		gMusic.play();
+		square.move(wall);
 
 		// Fill the background
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
+
+		// Render the wall
+		SDLFRect drawingRect = {(float)wall.x, (float)wall.y, (float)wall.w, (float)wall.h};
+		gRenderer.set_draw_color(0x00, 0x00, 0x00, 0xff);
+		gRenderer.rect(&drawingRect);
+
+		// Render the square
+		square.render();
 
 		// Render text on screen
 		gTextTexture.render(
