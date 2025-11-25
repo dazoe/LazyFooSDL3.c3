@@ -3,9 +3,10 @@ import std::io;
 import sdl;
 import sdl::ttf;
 
-const CInt SCREEN_WIDTH = 800;
-const CInt SCREEN_HEIGHT = 600;
-const int SCREEN_FPS = 60;
+const SCREEN_WIDTH = 800;
+const SCREEN_HEIGHT = 600;
+const LEVEL_WIDTH = 1280;
+const LEVEL_HEIGHT = 960;
 
 /* Global variables */
 // The main sdl window.
@@ -19,6 +20,8 @@ TTFFont* gFont;
 
 // Our global textures
 LTexture gTextTexture;
+LTexture gDotTexture;
+LTexture gBgTexture;
 
 faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_AUDIO, INIT_TTF;
 
@@ -79,8 +82,22 @@ fn void? load_media()
 
 	// Set gTextTexture to a static string
 	gTextTexture.load_from_rendered_text(
-		"Enter Text:\n",
-		{0x00, 0x00, 0x00, 0xFF});
+		"Move the dot around with <up>, <down>, <left> and <right>",
+		{0xcc, 0x00, 0x00, 0xFF});
+
+	// Load our dot texture.
+	if (gDotTexture.load_from_file("resources/dot.png") == false)
+	{
+		sdl::log_("Unsable to load dot texture. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
+
+	// Load our background2 texture
+	if (gBgTexture.load_from_file("resources/background2.png") == false)
+	{
+		sdl::log_("Unsable to load background texture. SDL error: %s\n", sdl::get_error());
+		err = LOAD_ERROR;
+	}
 
 	return err?;
 }
@@ -89,6 +106,8 @@ fn void close()
 {
 	// Clean up texture(s)
 	gTextTexture.destroy();
+	gDotTexture.destroy();
+	gBgTexture.destroy();
 
 	// Clean up font
 	gFont.close();
@@ -167,8 +186,11 @@ fn int main(String[] args)
 	// String
 	DString textInput;
 
-	// Enable text input
-	gWindow.start_text_input();
+	// The dot we will be moving
+	Dot dot;
+
+	// Define the camera area
+	SDLFRect camera = {0f, 0f, SCREEN_WIDTH, SCREEN_HEIGHT};
 
 	// The main loop
 	while(quit == false)
@@ -184,78 +206,48 @@ fn int main(String[] args)
 			{
 				quit = true;
 			}
-			// Special key input
-			else if (event.type == SDLEventType.KEY_DOWN)
-			{
-				// Handle backspace
-				if (event.key.key == sdl::K_BACKSPACE)
-				{
-					// remove last charater
-					if (textInput.len() > 0)
-					{
-						textInput.chop(textInput.len()-1);
-						updateTextTexture = true;
-					}
-				}
-				// Handle return
-				if (event.key.key == sdl::K_RETURN)
-				{
-					textInput.append('\n');
-					updateTextTexture = true;
-				}
-				// Handle copy (ctrl+c)
-				else if (event.key.key == sdl::K_C && sdl::get_mod_state() & sdl::KMOD_CTRL)
-				{
-					sdl::set_clipboard_text(textInput.zstr_view());
-				}
-				// Handle paste (ctrl+v)
-				else if (event.key.key == sdl::K_V && sdl::get_mod_state() & sdl::KMOD_CTRL)
-				{
-					ZString clipboard_text = sdl::get_clipboard_text();
-					if (clipboard_text != null)
-					{
-						textInput.append_chars(clipboard_text.str_view());
-						sdl::free(clipboard_text);
-						updateTextTexture = true;
-					}
-				}
-			}
-			// Special text input event
-			else if (event.type == SDLEventType.TEXT_INPUT)
-			{
-				// If not ctrl or alt
-				if (!(sdl::get_mod_state() & sdl::KMOD_ALT || sdl::get_mod_state() & sdl::KMOD_CTRL))
-				{
-					textInput.append_chars(event.text.text.str_view());
-					updateTextTexture = true;
-				}
-			}
+			dot.handle_event(&event);
 		}
 
-		// Re-render text when requested.
-		if (updateTextTexture)
+		// Update dot
+		dot.move();
+
+		// Center camera over the dot
+		camera.x = (float)(dot.get_pos_x() + DOT_WIDTH / 2 - SCREEN_WIDTH / 2);
+		camera.y = (float)(dot.get_pos_y() + DOT_HEIGHT / 2 - SCREEN_HEIGHT / 2);
+
+		// Bound the camera to the level area
+		if (camera.x < 0)
 		{
-			@pool()
-			{
-				DString tmp;
-				io::fprintf(&tmp, "Enter Text:\n%s", textInput.str_view())!!;
-				// update gTextTexture to include our string
-				gTextTexture.load_from_rendered_text(
-					tmp.zstr_view(),
-					{0x00, 0x00, 0x00, 0xFF});
-			};
+			camera.x = 0;
 		}
-
-
+		else if (camera.x + camera.w > LEVEL_WIDTH)
+		{
+			camera.x = LEVEL_WIDTH - camera.w;
+		}
+		if (camera.y < 0)
+		{
+			camera.y = 0;
+		}
+		else if (camera.y + camera.h > LEVEL_HEIGHT)
+		{
+			camera.y = LEVEL_HEIGHT - camera.h;
+		}
 
 		// Fill the background
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
 
+		// Show background
+		gBgTexture.render(0f, 0f, &camera);
+
+		// Render dot
+		dot.render(camera);
+
 		// Render text on screen
 		gTextTexture.render(
-			((float)SCREEN_WIDTH - gTextTexture.get_width()) / 2f,
-			((float)SCREEN_HEIGHT - gTextTexture.get_height()) / 2f);
+			((float)SCREEN_WIDTH - gTextTexture.get_width()) / 2f, 0f);
+			// ((float)SCREEN_HEIGHT - gTextTexture.get_height()) / 2f);
 
 		// Update screen
 		gRenderer.present();
