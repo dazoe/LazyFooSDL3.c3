@@ -5,8 +5,6 @@ import sdl::ttf;
 
 const SCREEN_WIDTH = 800;
 const SCREEN_HEIGHT = 600;
-const LEVEL_WIDTH = 1280;
-const LEVEL_HEIGHT = 960;
 
 /* Global variables */
 // The main sdl window.
@@ -19,9 +17,15 @@ SDLRenderer* gRenderer;
 TTFFont* gFont;
 
 // Our global textures
-LTexture gTextTexture;
 LTexture gDotTexture;
-LTexture gBgTexture;
+
+// Global Objects
+Dot gDot;
+
+// Gamestate management
+GameState gCurrentState;
+GameState gNextState;
+
 
 faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_AUDIO, INIT_TTF;
 
@@ -69,33 +73,11 @@ fn void? load_media()
 		sdl::log_("Could not load ttf font. SDL error: %s\n", sdl::get_error());
 		err = LOAD_ERROR;
 	}
-	else
-	{
-		// Load text (black)
-		SDLColor textColor = {0x00, 0x00, 0x00, 0xFF};
-		if (gTextTexture.load_from_rendered_text("Press return to start timer!", textColor) == false)
-		{
-			sdl::log_("Could not load text texture. SDL error: %s\n", sdl::get_error());
-			err = LOAD_ERROR;
-		}
-	}
-
-	// Set gTextTexture to a static string
-	gTextTexture.load_from_rendered_text(
-		"Move the dot around with <up>, <down>, <left> and <right>",
-		{0xcc, 0x00, 0x00, 0xFF});
 
 	// Load our dot texture.
 	if (gDotTexture.load_from_file("resources/dot.png") == false)
 	{
 		sdl::log_("Unsable to load dot texture. SDL error: %s\n", sdl::get_error());
-		err = LOAD_ERROR;
-	}
-
-	// Load our background2 texture
-	if (gBgTexture.load_from_file("resources/background2.png") == false)
-	{
-		sdl::log_("Unsable to load background texture. SDL error: %s\n", sdl::get_error());
 		err = LOAD_ERROR;
 	}
 
@@ -105,9 +87,7 @@ fn void? load_media()
 fn void close()
 {
 	// Clean up texture(s)
-	gTextTexture.destroy();
 	gDotTexture.destroy();
-	gBgTexture.destroy();
 
 	// Clean up font
 	gFont.close();
@@ -122,6 +102,33 @@ fn void close()
 	// Quit SDL and SDL_TTF
 	ttf::quit();
 	sdl::quit();
+}
+
+fn void set_next_state(GameState nextState)
+{
+	// If the user doesn't want to exit
+	if (gNextState.type != ExitState.typeid)
+	{
+		gNextState = nextState;
+	}
+}
+
+fn bool change_state()
+{
+	bool success = true;
+
+	// If the state needs to be changed
+	if (gNextState != null)
+	{
+		success = gCurrentState.exit() && success;
+		success = gNextState.enter() && success;
+
+		// change the current state and clear next state
+		gCurrentState = gNextState;
+		gNextState = null;
+	}
+
+	return success;
 }
 
 fn bool check_collision(SDLRect a, SDLRect b)
@@ -177,23 +184,22 @@ fn int main(String[] args)
 		return 2;
 	}
 
-	// The quit flag
-	bool quit;
-
 	// Event data
 	SDLEvent event;
 
-	// String
-	DString textInput;
+	// Initilize the dot we will be moving
+	gDot.init(20);
 
-	// The dot we will be moving
-	Dot dot;
-
-	// Define the camera area
-	SDLFRect camera = {0f, 0f, SCREEN_WIDTH, SCREEN_HEIGHT};
+	// Set initial gamestate
+	gCurrentState = &sIntroState;
+	if (gCurrentState.enter() == false)
+	{
+		gCurrentState.exit();
+		gCurrentState = &sExitState;
+	}
 
 	// The main loop
-	while(quit == false)
+	while(gCurrentState.type != ExitState.typeid)
 	{
 		// Set this to true to update the text texture.
 		bool updateTextTexture = false;
@@ -204,54 +210,38 @@ fn int main(String[] args)
 			// if quit event set quit flag
 			if (event.type == SDLEventType.QUIT)
 			{
-				quit = true;
+				set_next_state(&sExitState);
 			}
-			dot.handle_event(&event);
+			// if escape is pressed
+			if (event.type == SDLEventType.KEY_DOWN && event.key.key == sdl::K_ESCAPE)
+			{
+				set_next_state(&sExitState);
+			}
+
+			// Pass events to current state
+			gCurrentState.handle_event(&event);
 		}
 
-		// Update dot
-		dot.move();
+		// Update current state
+		gCurrentState.update();
 
-		// Center camera over the dot
-		camera.x = (float)(dot.get_pos_x() + DOT_WIDTH / 2 - SCREEN_WIDTH / 2);
-		camera.y = (float)(dot.get_pos_y() + DOT_HEIGHT / 2 - SCREEN_HEIGHT / 2);
-
-		// Bound the camera to the level area
-		if (camera.x < 0)
+		// Change state if needed
+		if (change_state() == false)
 		{
-			camera.x = 0;
-		}
-		else if (camera.x + camera.w > LEVEL_WIDTH)
-		{
-			camera.x = LEVEL_WIDTH - camera.w;
-		}
-		if (camera.y < 0)
-		{
-			camera.y = 0;
-		}
-		else if (camera.y + camera.h > LEVEL_HEIGHT)
-		{
-			camera.y = LEVEL_HEIGHT - camera.h;
+			// exit if failed to change state
+			gCurrentState.exit();
+			gCurrentState = &sExitState;
 		}
 
-		// Fill the background
+		// Fill the background (white)
 		gRenderer.set_draw_color(0xFF, 0xFF, 0xFF, 0xFF);
 		gRenderer.clear();
 
-		// Show background
-		gBgTexture.render(0f, 0f, &camera);
-
-		// Render dot
-		dot.render(camera);
-
-		// Render text on screen
-		gTextTexture.render(
-			((float)SCREEN_WIDTH - gTextTexture.get_width()) / 2f, 0f);
-			// ((float)SCREEN_HEIGHT - gTextTexture.get_height()) / 2f);
+		// Render the current state
+		gCurrentState.render();
 
 		// Update screen
 		gRenderer.present();
-
 	}
 
 	close();

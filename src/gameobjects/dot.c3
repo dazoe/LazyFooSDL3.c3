@@ -2,15 +2,23 @@ module lazyfoosdl3;
 
 import sdl;
 
-const DOT_WIDTH = 20;
-const DOT_HEIGHT = 20;
-
 const DOT_MAX_VELOCITY = 5;
 
 struct Dot
 {
-	CInt[<2>] position;
 	CInt[<2>] velocity;
+	SDLRect bounds;
+}
+
+fn void Dot.init(&self, CInt size)
+{
+	self.bounds = {0, 0, size, size};
+}
+
+fn void Dot.set_position(&self, CInt x, CInt y)
+{
+	self.bounds.x = x;
+	self.bounds.y = y;
 }
 
 fn void Dot.handle_event(&self, SDLEvent* event)
@@ -47,38 +55,35 @@ fn void Dot.handle_event(&self, SDLEvent* event)
 	}
 }
 
-fn void Dot.move(&self)
+fn void Dot.move(&self, CInt level_width, CInt level_height)
 {
-	// Move left/right and up/down
-	self.position += self.velocity;
+	// Move left/right
+	self.bounds.x += self.velocity.x;
 
 	// If the dot went to far left or right
-	if ((self.position.x < 0) || (self.position.x + DOT_WIDTH) > LEVEL_WIDTH)
+	if ((self.bounds.x < 0) || (self.bounds.x + self.bounds.w) > level_width)
 	{
 		// Move back
-		self.position.x -= self.velocity.x;
+		self.bounds.x -= self.velocity.x;
 	}
 
+	// Move up/down
+	self.bounds.y += self.velocity.y;
 	// If the dot went to far up or down
-	if ((self.position.y < 0) || (self.position.y + DOT_HEIGHT) > LEVEL_HEIGHT)
+	if ((self.bounds.y < 0) || (self.bounds.y + self.bounds.h) > level_height)
 	{
 		// Move back
-		self.position.y -= self.velocity.y;
+		self.bounds.y -= self.velocity.y;
 	}
 }
 
-fn void Dot.render(&self, SDLFRect camera)
+fn void Dot.render(&self, SDLRect camera)
 {
 	// Show the dot
-	gDotTexture.render((float)self.position.x - camera.x, (float)self.position.y - camera.y);
+	gDotTexture.render((float)(self.bounds.x - camera.x), (float)(self.bounds.y - camera.y));
 }
 
-fn CInt Dot.get_pos_x(&self)
+fn SDLRect Dot.get_collider(&self)
 {
-	return self.position.x;
-}
-
-fn CInt Dot.get_pos_y(&self)
-{
-	return self.position.y;
+	return self.bounds;
 }
