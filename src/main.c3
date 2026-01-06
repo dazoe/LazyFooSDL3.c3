@@ -13,12 +13,12 @@ faultdef INIT_VIDEO, INIT_WINDOW, INIT_SURFACE;
 
 fn void? init()
 {
-	if (sdl::init(SDLInitFlags.VIDEO) == false)
+	if (sdl::init({.video}) == false)
 	{
 		sdl::log_("SDL could not initialize! SDL error: %s\n", sdl::get_error());
 		return INIT_VIDEO?;
 	}
-	gWindow = sdl::create_window("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+	gWindow = sdl::create_window("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, {});
 	if (gWindow == null)
 	{
 		sdl::log_("Window could not be created! SDL error: %s\n", sdl::get_error());
