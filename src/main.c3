@@ -28,14 +28,14 @@ faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_AUDIO, INIT_TTF;
 fn void? init()
 {
 	// Initialize SDL
-	if (sdl::init(SDLInitFlags.VIDEO | SDLInitFlags.AUDIO) == false)
+	if (sdl::init({.video, .audio}) == false)
 	{
 		sdl::log_("SDL could not initialize! SDL error: %s\n", sdl::get_error());
 		return INIT_VIDEO?;
 	}
 
 	// Create window and renderer
-	if (sdl::create_window_and_renderer("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, 0, &gWindow, &gRenderer) == false)
+	if (sdl::create_window_and_renderer("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, {}, &gWindow, &gRenderer) == false)
 	{
 		sdl::log_("Window could not be created! SDL error: %s\n", sdl::get_error());
 		return INIT_WINDOW?;
@@ -137,7 +137,7 @@ fn bool check_collision(SDLRect a, SDLRect b)
 	CInt bMaxX = b.x + b.w;
 	CInt bMinY = b.y;
 	CInt bMaxY = b.y + b.h;
-	
+
 	// If the left side of a is to the right of b
 	if (aMinX >= bMaxX)
 	{
