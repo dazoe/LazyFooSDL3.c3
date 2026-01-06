@@ -34,12 +34,12 @@ faultdef INIT_VIDEO, INIT_WINDOW;
 
 fn void? init()
 {
-	if (sdl::init(SDLInitFlags.VIDEO) == false)
+	if (sdl::init({.video}) == false)
 	{
 		sdl::log_("SDL could not initialize! SDL error: %s\n", sdl::get_error());
 		return INIT_VIDEO?;
 	}
-	if (sdl::create_window_and_renderer("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, 0, &gWindow, &gRenderer) == false)
+	if (sdl::create_window_and_renderer("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, {}, &gWindow, &gRenderer) == false)
 	{
 		sdl::log_("Window could not be created! SDL error: %s\n", sdl::get_error());
 		return INIT_WINDOW?;
@@ -99,7 +99,7 @@ fn int main(String[] args)
 	colorChannelIndices[ColorChannel.BACKGROUND_BLUE] = 2;
 
 	// Initialize blending
-	gColorsTexture.set_blending(sdl::BLENDMODE_BLEND);
+	gColorsTexture.set_blending({.blend});
 
 	// The quit flag
 	bool quit;
