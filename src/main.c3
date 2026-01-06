@@ -214,7 +214,7 @@ fn int main(String[] args)
 					ZString clipboard_text = sdl::get_clipboard_text();
 					if (clipboard_text != null)
 					{
-						textInput.append_chars(clipboard_text.str_view());
+						textInput.append_string(clipboard_text.str_view());
 						sdl::free(clipboard_text);
 						updateTextTexture = true;
 					}
@@ -226,7 +226,7 @@ fn int main(String[] args)
 				// If not ctrl or alt
 				if (!(sdl::get_mod_state() & sdl::KMOD_ALT || sdl::get_mod_state() & sdl::KMOD_CTRL))
 				{
-					textInput.append_chars(event.text.text.str_view());
+					textInput.append_string(event.text.text.str_view());
 					updateTextTexture = true;
 				}
 			}
