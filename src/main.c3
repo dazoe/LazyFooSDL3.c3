@@ -26,14 +26,14 @@ faultdef INIT_VIDEO, INIT_WINDOW, INIT_VSYNC, INIT_TTF;
 fn void? init()
 {
 	// Initialize SDL
-	if (sdl::init(SDLInitFlags.VIDEO) == false)
+	if (sdl::init({.video}) == false)
 	{
 		sdl::log_("SDL could not initialize! SDL error: %s\n", sdl::get_error());
 		return INIT_VIDEO?;
 	}
 
 	// Create window and renderer
-	if (sdl::create_window_and_renderer("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, 0, &gWindow, &gRenderer) == false)
+	if (sdl::create_window_and_renderer("LazyFoo SDL3 tutorial in C3", SCREEN_WIDTH, SCREEN_HEIGHT, {}, &gWindow, &gRenderer) == false)
 	{
 		sdl::log_("Window could not be created! SDL error: %s\n", sdl::get_error());
 		return INIT_WINDOW?;
